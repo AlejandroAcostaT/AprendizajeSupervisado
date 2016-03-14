@@ -1,0 +1,223 @@
+---
+title: "Tarea2_AlejandroAcosta"
+author: "Alejandro Acosta"
+date: "March 11, 2016"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+if(!require("gmodels")){
+  install.packages("gmodels")
+}
+
+if(!require("class")){
+  install.packages("class")
+}
+
+if(!require("rpart")){
+  install.packages("rpart")
+}
+
+if(!require("frbs")){
+  install.packages("frbs")
+}
+library("gmodels")
+library("class")
+library("rpart")
+library("frbs")
+#CAMBIAR ESTA LINEA AL DIRECTORIO QUE SE ESTA USANDO
+dir <- '/home/alejandro/Desktop/Tarea2'
+setwd(dir)
+Becas = read.csv("minable.csv")  # read csv file 
+```
+
+## Parte I: Becas Crema
+
+Para esta segunda parte se le presenta a la organización una comparación de distintos algoritmos de clasificación, estos algoritmos son k-vecinos más cercanos, árboles de decisión y reglas de clasificación. 
+
+Las variables predictoras usadas en cada uno de los modelos fueron escuela, sCurso, tGrado, eficiencia, pAprobado, mInscritas, mAprobadas, mRetiradas, mReprobadas y mIngreso (esta última es la variable que intentamos predecir).
+
+```{r variables}
+#Variables de la vista minable a usar
+  myvars <- c("escuela", "sCurso", "tGrado", "eficiencia",
+              "pAprobado", "mInscritas", "mAprobadas", 
+              "mRetiradas", "mReprobadas", "mIngreso")
+```
+
+### K-vecinos más cercanos:
+
+Para k-vecinos más cercanos se probó el algoritmo usando los valores 4,5,6 y 7 para el k y los resultados fueron los siguientes
+
+```{r k-vecinos}
+#Dataset solo con los datos necesarios de la
+#vista minable
+knn_becas <- Becas[myvars]
+
+set.seed(1234)
+#Separacion del dataset en training y test
+ind <- sample(2, nrow(knn_becas), replace=TRUE, prob=c(0.67, 0.33))
+knn_becas.training <- knn_becas[ind==1, 1:9]
+knn_becas.test <- knn_becas[ind==2, 1:9]
+knn_becas.trainLabels <- knn_becas[ind==1, 10]
+knn_becas.testLabels <- knn_becas[ind==2, 10]
+
+#prediccion de knn con k=4
+knn_becas_pred_4 <- knn(train = knn_becas.training, 
+                  test = knn_becas.test, cl = knn_becas.trainLabels, k=4)
+
+#prediccion de knn con k=5
+knn_becas_pred_5 <- knn(train = knn_becas.training, 
+                  test = knn_becas.test, cl = knn_becas.trainLabels, k=5)
+
+#prediccion de knn con k=6
+knn_becas_pred_6 <- knn(train = knn_becas.training, 
+                  test = knn_becas.test, cl = knn_becas.trainLabels, k=6)
+
+#prediccion de knn con k=7
+knn_becas_pred_7 <- knn(train = knn_becas.training, 
+                  test = knn_becas.test, cl = knn_becas.trainLabels, k=7)
+
+```
+
+#### Matrices de Confusión
+
+Para el caso de k=4:
+
+```{r CM-4, echo=FALSE}
+CrossTable(x = knn_becas.testLabels, y = knn_becas_pred_4, prop.chisq=FALSE)
+```
+
+Para el caso de k=5:
+
+```{r CM-5, echo=FALSE}
+CrossTable(x = knn_becas.testLabels, y = knn_becas_pred_5, prop.chisq=FALSE)
+```
+
+Para el caso de k=6:
+
+```{r CM-6, echo=FALSE}
+CrossTable(x = knn_becas.testLabels, y = knn_becas_pred_6, prop.chisq=FALSE)
+```
+
+Para el caso de k=7:
+
+```{r CM-7, echo=FALSE}
+CrossTable(x = knn_becas.testLabels, y = knn_becas_pred_7, prop.chisq=FALSE)
+```
+
+Como se puede observar no se pueden predecir bien los mIngreso cuyos valores son 1 y 2, esto sucede porque no hay suficientes casos donde el mIngreso tenga estos valores y por lo tanto los valores 1 y 2 no se encuentran representados en la tabla o se predicen como si fuesen valores 0 y 3.
+
+El mejor resultado ocurre cuando k=5, donde se predijo acertadamente con un mayor porcentaje que los demas casos.
+
+### Árboles de desición:
+
+Para árboles de desición se probó el algoritmo cambiando el parametro de complejidad "cp" con los valores 0.05, 0.02 y 0.01. No se usó un valor menor a 0.01 pues el árbol queda muy complejo y para datasets muy grandes el tiempo de ejecución sería muy grande.
+
+```{r tree}
+#Dataset solo con los datos necesarios de la
+#vista minable
+tree_becas <- Becas[myvars]
+
+#Creacion del arbol con cp=0.05
+fit_05 <- rpart(mIngreso ~ sCurso + tGrado + eficiencia + pAprobado + mInscritas + mAprobadas + mRetiradas + mReprobadas, method = "class", control = rpart.control(minsplit=2, cp=0.05),data = tree_becas)
+
+#Creacion del arbol con cp=0.02
+fit_02 <- rpart(mIngreso ~ sCurso + tGrado + eficiencia + pAprobado + mInscritas + mAprobadas + mRetiradas + mReprobadas, method = "class", control = rpart.control(minsplit=2, cp=0.02),data = tree_becas)
+
+#Creacion del arbol con cp=0.01
+fit_01 <- rpart(mIngreso ~ sCurso + tGrado + eficiencia + pAprobado + mInscritas + mAprobadas + mRetiradas + mReprobadas, method = "class", control = rpart.control(minsplit=2, cp=0.01),data = tree_becas)
+
+```
+
+### Plot y predicción del árbol
+
+Caso de cp=0.05
+
+```{r plot_tree1, echo=FALSE}
+#plot del arbol
+plot(fit_05, uniform=TRUE)
+text(fit_05,  cex=1)
+```
+```{r prediction_tree1}
+#prediccion del arbol
+pred <- predict(fit_05, type = "class")
+CrossTable(x=tree_becas$mIngreso, y=pred, prop.chisq = FALSE)
+```
+
+Caso de cp=0.02
+
+```{r plot_tree2, echo=FALSE}
+#plot del arbol
+plot(fit_02, uniform=TRUE)
+text(fit_02,  cex=1)
+```
+```{r prediction_tree2}
+#prediccion del arbol
+pred <- predict(fit_02, type = "class")
+CrossTable(x=tree_becas$mIngreso, y=pred, prop.chisq = FALSE)
+```
+
+Caso de cp=0.01
+
+```{r plot_tree3, echo=FALSE}
+#plot del arbol
+plot(fit_01, uniform=TRUE)
+text(fit_01,  cex=1)
+```
+```{r prediction_tree3}
+#prediccion del arbol
+pred <- predict(fit_01, type = "class")
+CrossTable(x=tree_becas$mIngreso, y=pred, prop.chisq = FALSE)
+```
+
+El primer árbol con cp=0.05 es muy simple y solo predice si el valor de mIngreso del estudiante es de 0 o 3. 
+
+Al contrario el árbol con cp=0.02 logra predecir el caso en que mIngreso es 2, aunque con bajo porcentaje de aciertos pero mantiene un buen porcentaje de aciertos para los casos en que mIngreso es 0 o 3.
+
+Por último el caso en que cp=0.01  predice de manera correcta con probabilidad 1 de exactitud (usando la data provista) cuando mIngreso es 1 o 2. Y para los casos 0 y 3 la probabilidad de que la predicción sea correcta es aproximadamente de 0.9. Pero la complejidad del árbol es mucho mayor a las anteriores y por lo tanto se debe decidir si se quiere exactitud o rapidez a la hora de elegir el árbol. Si se quiere exactitud este último árbol es el indicado en caso contrario el árbol con cp=0.02 provee menos complejidad y tiene un buen porcentaje de predicción.
+
+### Reglas de clasificación:
+
+Debido a que las variables del dataset escogidas para predecir el modo de ingreso de un estudiante no tienen una relación lo suficientemente buena este método, como se puede ver en la matriz de confusión, no presenta buenos resultados. Y la clasificación tiende a irse a que el modo de ingreso es de tipo 3.
+
+```{r classification}
+#Dataset solo con los datos necesarios de la
+#vista minable
+brc_becas <- Becas[myvars]
+
+#Separacion del data set para training y test
+train <- Becas$cIdentidad < 95
+test <- !train
+
+train.X <- brc_becas[train, c(1:10)]
+test.X <- brc_becas[test, c(1:9)]
+
+#se suma 1 a mIngreso pues no se acepta el valor 0
+train.X[10] = train.X[10] + 1 
+
+#resultados reales del test
+test.mIngreso <- Becas$mIngreso[test] 
+
+#Definir data range sin mIngresos y
+#definir parametros method y control
+range.data.input <- apply(brc_becas[, -ncol(brc_becas)], 2, range)
+method.type <- "FRBCS.W"
+control <- list(num.labels = 7, type.mf = "GAUSSIAN", type.tnorm = "MIN",
+                type.snorm = "MAX", type.implication.func = "ZADEH")
+
+# Learning step: Generate fuzzy model
+object.cls <- frbs.learn(train.X, range.data.input, method.type, control)
+
+# Predicting step
+res.test <- predict(object.cls, test.X)
+
+res.test <- res.test - 1
+```
+
+```{r prediction_rules}
+CrossTable(x=test.mIngreso, y=res.test, prop.chisq = FALSE)
+```
+
+Entre estos métodos el de árboles de decisión fue el que mejor dió resultados y sería el que usaría para hacer la clasificación.
+
+
+

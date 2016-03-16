@@ -1,0 +1,39 @@
+---
+title: "hogar"
+author: "Alejandro Acosta"
+date: "March 11, 2016"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+dir <- '/home/alejandro/Desktop/AprendizajeSupervisado'
+setwd(dir)
+
+Hogares = read.csv("hogares.csv")  # read csv file 
+myvars <- c("Dirección", "Tipo.de.Inmueble", "Descripción", "Habitaciones.Disponibles", "Precio.Mensual")
+hogares <- Hogares[myvars]
+
+# Colocar su API Key 
+api_key = "AIzaSyDNQXuC3dVEKhhXtVre48jFFPRb3eIDw9g"
+
+# Seleccionar google_api.R en su sistema de archivos
+source("google_api.R")
+```
+```{r googleAPI}
+origen = c("Sapienza Universita di Roma, Roma Italia")
+dist = c()
+time = c()
+for (address in hogares$Dirección){
+  destino = gsub("[\n]"," ",address) #eliminar \n
+  destino = paste(destino, "Roma Italia") #agregar Roma Italia mejora la busqueda en el API
+  api_url = get_url(origen, destino, api_key)
+  datos = get_data(api_url)
+  res = parse_data(datos) #funcion parse data
+  dist <- append(dist, res[1]) #se crea un arreglo de distancias 
+  time <- append(time, res[2]) # y de tiempos
+}
+#se añaden las columnas Distancia y tiempo a los hogares
+hogares["Distancia"]=dist
+hogares["Tiempo"]=time
+```
+

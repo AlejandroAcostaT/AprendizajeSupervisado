@@ -8,7 +8,7 @@ install = function(pkg){
     if (!require(pkg, character.only = TRUE)) stop(paste("load failure:", pkg))
   }
 }
-
+library("stringr")
 install("jsonlite")
 
 fetch_data = function(preamble, list){
@@ -40,8 +40,12 @@ get_url = function(origins, destinations, key, mode = "driving", language = "es"
 get_data = function(api_url){
   return(fromJSON(api_url))
 }
-
 # To Complete
 parse_data = function(json){
-  
+  distance = json$rows$elements[[1]]$distance$text
+  time = json$rows$elements[[1]]$duration$text
+  distance <- str_extract(distance, "\\d+\\,*\\d*")
+  time <- str_extract(time, "\\d+\\,*\\d*")
+  res = c(distance, time)
+  return(res)
 }

@@ -2,7 +2,7 @@
 # sudo apt-get install libcurl4-openssl-dev 
 
 install = function(pkg){
-  # Si ya est√° instalado, no lo instala.
+  # Si ya est· instalado, no lo instala.
   if (!require(pkg, character.only = TRUE)) {
     install.packages(pkg, repos = "http:/cran.rstudio.com")
     if (!require(pkg, character.only = TRUE)) stop(paste("load failure:", pkg))
@@ -44,8 +44,8 @@ get_data = function(api_url){
 parse_data = function(json){
   distance = json$rows$elements[[1]]$distance$text
   time = json$rows$elements[[1]]$duration$text
-  distance <- str_extract(distance, "\\d+\\,*\\d*")
-  time <- str_extract(time, "\\d+\\,*\\d*")
+  distance <- str_extract(distance, "\\d+")
+  time <- str_extract(time, "\\d+")
   res = c(distance, time)
   return(res)
 }

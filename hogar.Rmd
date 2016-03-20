@@ -1,39 +1,223 @@
 ---
-title: "hogar"
+title: "Hogares"
 author: "Alejandro Acosta"
 date: "March 11, 2016"
 output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-dir <- '/home/alejandro/Desktop/AprendizajeSupervisado'
-setwd(dir)
+if(!require("XLConnect")){
+  install.packages("XLConnectJars")
+  install.packages("XLConnect")
+}
+library("stats")
+library("XLConnectJars")
+library("XLConnect")
+#######################################################
+#                     Read file                       #
+#######################################################
 
-Hogares = read.csv("hogares.csv")  # read csv file 
-myvars <- c("DirecciÃ³n", "Tipo.de.Inmueble", "DescripciÃ³n", "Habitaciones.Disponibles", "Precio.Mensual")
+Hogares <- readWorksheetFromFile(file = "hogares.xlsx", sheet = 1)
+myvars <- c("Dirección", "Descripción", "Habitaciones.Disponibles", "Precio.Mensual", "Notas")
 hogares <- Hogares[myvars]
+
+```
+
+```{r googleAPI}
+#######################################################
+#                   Using Google API                  #
+#######################################################
 
 # Colocar su API Key 
 api_key = "AIzaSyDNQXuC3dVEKhhXtVre48jFFPRb3eIDw9g"
 
 # Seleccionar google_api.R en su sistema de archivos
-source("google_api.R")
-```
-```{r googleAPI}
+source(file.choose())
+dist=c()
+time=c()
 origen = c("Sapienza Universita di Roma, Roma Italia")
-dist = c()
-time = c()
-for (address in hogares$DirecciÃ³n){
-  destino = gsub("[\n]"," ",address) #eliminar \n
-  destino = paste(destino, "Roma Italia") #agregar Roma Italia mejora la busqueda en el API
+for (address in hogares$Dirección){
+  destino = gsub("[\n]"," ",address)
+  destino = paste(destino, "Roma Italia")
   api_url = get_url(origen, destino, api_key)
   datos = get_data(api_url)
-  res = parse_data(datos) #funcion parse data
-  dist <- append(dist, res[1]) #se crea un arreglo de distancias 
-  time <- append(time, res[2]) # y de tiempos
+  res = parse_data(datos)
+  dist <- append(dist, res[1])
+  time <- append(time, res[2])
 }
-#se aÃ±aden las columnas Distancia y tiempo a los hogares
+
+#Se añade distancia y tiempo al dataset de hogares 
 hogares["Distancia"]=dist
 hogares["Tiempo"]=time
+
+hogares$Distancia
+hogares$Tiempo
 ```
 
+```{r preprocesing}
+#######################################################
+#                 Preprocessing Data                  #
+#######################################################
+# ver cuales apartamentos son para hombres y cuales para mujeres
+hombres=c()
+mujeres=c()
+for (n in hogares$Notas){
+  if((grepl("\\sragazzi\\s",n))||
+     (grepl("\\sragazzi/e\\s",n))||
+     (grepl("\\sragazze/i\\s",n))||
+     (grepl("\\sragazze/ragazzi\\s",n))||
+     (grepl("\\sragazzi/ragazze\\s",n))){
+    hombres<-append(hombres, T)
+  }else{
+    hombres<-append(hombres, F)
+  }
+  if((grepl("\\sragazze\\s",n))||
+     (grepl("\\sragazzi/e\\s",n))||
+     (grepl("\\sragazze/i\\s",n))||
+     (grepl("\\sragazze/ragazzi\\s",n))||
+     (grepl("\\sragazzi/ragazze\\s",n))){
+    mujeres<-append(mujeres, T)
+  }else{
+    mujeres<-append(mujeres, F)
+  }
+}
+
+# obtener precio del apartamento
+precio=c()
+servicios=c()
+for (p in hogares$Precio.Mensual){
+  #Se inicializa el total en 0, 
+  #aqui se iran sumando los puntos
+  total=0
+  
+  #Se extrae el precio del apartamento
+  precio<-append(precio, as.numeric(strsplit(p, "[^0-9]+")[[1]][2]))
+  
+  #Se verifica si el apt. es todo incluido
+  if(grepl("TUTTO INCLUSO",p)){
+    total = total+5
+  }
+  #o si falta el precio de los servicios
+  if(grepl("spese escluse",p)){
+    total = total-2
+  }
+  
+  #si se paga el internet
+  if(grepl("internet",p)){
+    total = total+5
+  }
+  
+  #si tiene calefaccion
+  if(grepl("riscaldamento",p)){
+    total = total+5
+  }
+  
+  #Se agrega el total a servicios
+  servicios<-(append(servicios, total))
+}
+
+desc=c()
+for (p in hogares$Descripción){
+  #Se inicializa el total en 0, 
+  #aqui se iran sumando los puntos
+  total=0
+  
+  #Se verifica si el apt. tiene cocina
+  if(grepl("cucina",p)){
+    total = total+5
+  }
+  #si tiene varios cuartos
+  if(grepl("camere",p)){
+    total = total+3
+  }
+  #si tiene un solo cuarto
+  if(grepl("camera",p)){
+    total = total+4
+  }
+  #si tiene internet
+  if(grepl("internet",p)){
+    total = total+5
+  }
+  
+  #Se agrega el total a los puntos
+  desc<-(append(desc, total))
+}
+
+notas = c()
+for (p in hogares$Notas){
+  #Se inicializa el total en 0, 
+  #aqui se iran sumando los puntos
+  total=0
+  
+  #si queda cerca un metro
+  if(grepl("Metro",p)){
+    total = total+1
+  }
+  #si queda cerca un autobus
+  if(grepl("Autobus",p)){
+    total = total+1
+  }
+  #si queda cerca un tranvia
+  if(grepl("Tram",p)){
+    total = total+1
+  }
+  #Se agrega el total a los puntos
+  notas<-(append(notas, total))
+}
+
+dist = c()
+for (p in hogares$Distancia){
+  #depende de la distancia
+  dist<-(append(dist, -as.numeric(p)%/%10))
+}
+
+tim = c()
+for (p in hogares$Tiempo){
+  #depende del tiempo
+  tim<-(append(tim, -as.numeric(p)%/%10))
+}
+
+puntos = tim + dist + notas + desc + servicios
+puntos2 = c()
+for(p in puntos){
+  if (p < 0)
+    puntos2<-append(puntos2,0)
+  else
+    puntos2<-append(puntos2,p)
+}
+
+#Se separan los datos por sexo
+puntos_h=c()
+puntos_m=c()
+precio_h=c()
+precio_m=c()
+
+for(i in 1:103){
+  if(hombres[i]==T){
+    precio_h<-append(precio_h, precio[i])
+    puntos_h<-append(puntos_h, puntos2[i])
+  }
+  if(mujeres[i]==T){
+    precio_m<-append(precio_m, precio[i])
+    puntos_m<-append(puntos_m, puntos2[i])
+  }
+}
+
+#se crean los dataframe
+minable_hombres = data.frame(Precio=precio_h, Puntos=puntos_h)
+minable_mujeres = data.frame(Precio=precio_m, Puntos=puntos_m)
+```
+
+```{r regression}
+#regresion lineal
+
+regresion_hombres <- lm(formula=minable_hombres$Precio~minable_hombres$Puntos)
+regresion_hombres
+
+regresion_mujeres <- lm(formula=minable_mujeres$Precio~minable_mujeres$Puntos)
+regresion_mujeres
+
+plot(regresion_hombres)
+
+plot(regresion_mujeres)
+```

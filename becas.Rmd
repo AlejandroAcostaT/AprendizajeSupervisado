@@ -24,9 +24,7 @@ library("gmodels")
 library("class")
 library("rpart")
 library("frbs")
-#CAMBIAR ESTA LINEA AL DIRECTORIO QUE SE ESTA USANDO
-dir <- '/home/alejandro/Desktop/Tarea2'
-setwd(dir)
+
 Becas = read.csv("minable.csv")  # read csv file 
 ```
 
